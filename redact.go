@@ -9,9 +9,9 @@ import (
 )
 
 func Redact(input io.Reader, output io.Writer, expressions []string, redactedValue string) {
-	t := NewTrieTree()
+	t := NewTrie()
 	for _, expression := range expressions {
-		t.Add(strings.ToLower(expression))
+		t.Insert(strings.ToLower(expression))
 	}
 
 	sb := strings.Builder{}
@@ -40,7 +40,7 @@ func Redact(input io.Reader, output io.Writer, expressions []string, redactedVal
 
 				sb = strings.Builder{}
 
-				if t.Verify(strings.ToLower(w)) {
+				if t.Search(strings.ToLower(w)) {
 					w = redactedValue
 				}
 

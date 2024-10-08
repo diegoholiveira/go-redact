@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/diegoholiveira/go-redact"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/diegoholiveira/go-redact"
 )
 
 func TestTrieDataStructure(t *testing.T) {
-	trie := redact.NewTrieTree(
+	trie := redact.NewTrie(
 		"Capelinha",
 		"Minas Gerais",
 		"Brasil",
@@ -34,6 +35,6 @@ func TestTrieDataStructure(t *testing.T) {
 	}
 
 	for _, scenario := range scenarios {
-		assert.Equal(t, scenario.Exists, trie.Verify(scenario.Expression), fmt.Sprintf("Failed expression: %s", scenario.Expression))
+		assert.Equal(t, scenario.Exists, trie.Search(scenario.Expression), fmt.Sprintf("Failed expression: %s", scenario.Expression))
 	}
 }

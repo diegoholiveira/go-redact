@@ -1,74 +1,97 @@
 package redact
 
-type node struct {
-	current rune
-	childs  map[rune]*node
-}
-
-const (
-	rootNode        rune = '+'
-	endOfExpression rune = '|'
+import (
+	"encoding/json"
+	"sync"
 )
 
-// NewTrieTree creates a new node for a Trie Tree data structure.
+// TrieNode represents a node in the Trie
+type TrieNode struct {
+	Children    map[rune]*TrieNode `json:"children"`
+	IsEndOfWord bool               `json:"is_end_of_word"`
+
+	mutex sync.RWMutex `json:"-"`
+}
+
+// Trie represents the entire Trie structure
+type Trie struct {
+	Root *TrieNode `json:"root"`
+}
+
+// NewTrieNode initializes a new TrieNode
+func NewTrieNode() *TrieNode {
+	return &TrieNode{
+		Children: make(map[rune]*TrieNode),
+	}
+}
+
+// NewTrie initializes a new Trie
 //
 // The Trie data structure [1] is used to efficiently store and
 // search for single and composed words like "Company" and "Company X"
 //
 // [1] https://en.wikipedia.org/wiki/Trie
-func NewTrieTree(expressions ...string) *node {
-	n := node{
-		current: rootNode,
-		childs:  make(map[rune]*node),
+func NewTrie(expressions ...string) *Trie {
+	trie := &Trie{
+		Root: NewTrieNode(),
 	}
-
 	for _, expression := range expressions {
-		n.Add(expression)
+		trie.Insert(expression)
 	}
-
-	return &n
+	return trie
 }
 
-func newNode(current rune) *node {
-	n := node{
-		current: current,
-		childs:  make(map[rune]*node),
-	}
-
-	return &n
-}
-
-func (tree *node) Add(expression string) {
+func (tree *Trie) Insert(expression string) {
 	if len(expression) == 0 {
 		return
 	}
 
-	if tree.current != rootNode {
-		return
+	node := tree.Root
+
+	for _, c := range expression {
+		node.mutex.Lock()
+		if _, exists := node.Children[c]; !exists {
+			node.Children[c] = NewTrieNode()
+		}
+		node.mutex.Unlock()
+		node = node.Children[c]
 	}
 
-	node := tree
-	for i, c := range expression {
-		if _, found := node.childs[c]; !found {
-			node.childs[c] = newNode(c)
-		}
-		node = node.childs[c]
-		if len(expression) == i+1 {
-			node.childs[endOfExpression] = newNode(endOfExpression)
-		}
-	}
+	node.mutex.Lock()
+	node.IsEndOfWord = true
+	node.mutex.Unlock()
 }
 
-func (tree *node) Verify(expression string) bool {
-	node := tree
-	found := false
+func (tree *Trie) Search(expression string) bool {
+	node := tree.Root
+
 	for _, c := range expression {
-		if node, found = node.childs[c]; !found {
+		node.mutex.RLock()
+		next, found := node.Children[c]
+		node.mutex.RUnlock()
+
+		if !found {
 			return false
 		}
+
+		node = next
 	}
-	if _, found := node.childs[endOfExpression]; found {
-		return true
+	node.mutex.RLock()
+	defer node.mutex.RUnlock()
+	return node.IsEndOfWord
+}
+
+// SerializeTrie serializes the Trie to JSON format
+func (t *Trie) SerializeTrie() ([]byte, error) {
+	return json.Marshal(t)
+}
+
+// DeserializeTrie deserializes JSON data into a Trie
+func DeserializeTrie(data []byte) (*Trie, error) {
+	var trie Trie
+	err := json.Unmarshal(data, &trie)
+	if err != nil {
+		return nil, err
 	}
-	return false
+	return &trie, nil
 }
